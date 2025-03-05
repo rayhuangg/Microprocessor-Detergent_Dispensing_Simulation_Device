@@ -1,0 +1,204 @@
+MPLINK 5.09, LINKER
+Linker Map File - Created Thu Jan 14 11:46:47 2021
+
+                                 Section Info
+                  Section       Type    Address   Location Size(Bytes)
+                ---------  ---------  ---------  ---------  ---------
+                   .org_0       code   0x000000    program   0x000002
+                   .cinit    romdata   0x000002    program   0x000002
+                   .org_1       code   0x000008    program   0x000002
+                   .org_2       code   0x000018    program   0x000002
+                   .org_3       code   0x00002a    program   0x000372
+                 LCD_CODE       code   0x00039c    program   0x000146
+.config_300001_BUILD/DEFAULT/PRODUCTION/CONFIG.    romdata   0x300001    program   0x000001
+.config_300002_BUILD/DEFAULT/PRODUCTION/CONFIG.    romdata   0x300002    program   0x000001
+.config_300003_BUILD/DEFAULT/PRODUCTION/CONFIG.    romdata   0x300003    program   0x000001
+.config_300005_BUILD/DEFAULT/PRODUCTION/CONFIG.    romdata   0x300005    program   0x000001
+.config_300006_BUILD/DEFAULT/PRODUCTION/CONFIG.    romdata   0x300006    program   0x000001
+.config_300008_BUILD/DEFAULT/PRODUCTION/CONFIG.    romdata   0x300008    program   0x000001
+.config_300009_BUILD/DEFAULT/PRODUCTION/CONFIG.    romdata   0x300009    program   0x000001
+.config_30000A_BUILD/DEFAULT/PRODUCTION/CONFIG.    romdata   0x30000a    program   0x000001
+.config_30000B_BUILD/DEFAULT/PRODUCTION/CONFIG.    romdata   0x30000b    program   0x000001
+.config_30000C_BUILD/DEFAULT/PRODUCTION/CONFIG.    romdata   0x30000c    program   0x000001
+.config_30000D_BUILD/DEFAULT/PRODUCTION/CONFIG.    romdata   0x30000d    program   0x000001
+                   .udata      udata   0x000060       data   0x000007
+
+
+
+                              Program Memory Usage 
+                               Start         End      
+                           ---------   ---------      
+                            0x000000    0x000003      
+                            0x000008    0x000009      
+                            0x000018    0x000019      
+                            0x00002a    0x0004e1      
+                            0x300001    0x300003      
+                            0x300005    0x300006      
+                            0x300008    0x30000d      
+            1227 out of 33048 program addresses used, program memory utilization is 3%
+
+
+
+                              Symbols - Sorted by Name
+                     Name    Address   Location    Storage File                     
+                ---------  ---------  ---------  --------- ---------                
+                  AD_Loop   0x0001ec    program     static C:\PIC18\Mine\testt.X\Main.asm
+             B_to_D_Value   0x00023c    program     static C:\PIC18\Mine\testt.X\Main.asm
+              C_Hold_Time   0x0002b4    program     static C:\PIC18\Mine\testt.X\Main.asm
+                Count_HND   0x000244    program     static C:\PIC18\Mine\testt.X\Main.asm
+                Count_ONE   0x000268    program     static C:\PIC18\Mine\testt.X\Main.asm
+                Count_TEN   0x000256    program     static C:\PIC18\Mine\testt.X\Main.asm
+              Delay_100uS   0x0004d2    program     static C:\PIC18\Mine\testt.X\LCD.asm
+                Delay_1mS   0x0004c0    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                Delay_xMS   0x0004ae    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+             Exit_Low_ISR   0x00039a    program     static C:\PIC18\Mine\testt.X\Main.asm
+                Hex2ASCII   0x00043c    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                  Hi_ISRs   0x00033a    program     static C:\PIC18\Mine\testt.X\Main.asm
+                High_TMR1   0x000342    program     static C:\PIC18\Mine\testt.X\Main.asm
+                High_TMR3   0x000380    program     static C:\PIC18\Mine\testt.X\Main.asm
+                  InitLCD   0x00039c    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                  L1_4LCD   0x000490    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                L1homeLCD   0x00048a    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                 L2_12LCD   0x0004a2    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                  L2_2LCD   0x000496    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                  L2_7LCD   0x00049c    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                L2homeLCD   0x0004a8    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+               LED_Rotate   0x000226    program     static C:\PIC18\Mine\testt.X\Main.asm
+                    LOOP1   0x0002a8    program     static C:\PIC18\Mine\testt.X\Main.asm
+                 Low_ISRs   0x00038e    program     static C:\PIC18\Mine\testt.X\Main.asm
+                     Main   0x00002a    program     static C:\PIC18\Mine\testt.X\Main.asm
+                PutHexLCD   0x00042a    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+              READ_EEPROM   0x00027a    program     static C:\PIC18\Mine\testt.X\Main.asm
+                 Send_Cmd   0x000454    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+           Send_High_4bit   0x000466    program     static C:\PIC18\Mine\testt.X\LCD.asm
+            Send_High_LCD   0x00040e    program     static C:\PIC18\Mine\testt.X\LCD.asm
+            Send_Low_4bit   0x000464    program     static C:\PIC18\Mine\testt.X\LCD.asm
+             Send_Low_LCD   0x00040c    program     static C:\PIC18\Mine\testt.X\LCD.asm
+                  Sing_Do   0x000328    program     static C:\PIC18\Mine\testt.X\Main.asm
+                Sing_La_m   0x00032e    program     static C:\PIC18\Mine\testt.X\Main.asm
+                  Sing_Mi   0x00031c    program     static C:\PIC18\Mine\testt.X\Main.asm
+                  Sing_Re   0x000322    program     static C:\PIC18\Mine\testt.X\Main.asm
+                Sing_Si_m   0x000334    program     static C:\PIC18\Mine\testt.X\Main.asm
+                    Start   0x00014c    program     static C:\PIC18\Mine\testt.X\Main.asm
+           Timer1_0_times   0x000378    program     static C:\PIC18\Mine\testt.X\Main.asm
+             WRITE_EEPROM   0x00028c    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_014E   0x00014e    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_0156   0x000156    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_01F6   0x0001f6    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_024A   0x00024a    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_025C   0x00025c    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_026E   0x00026e    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_02BC   0x0002bc    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_02C4   0x0002c4    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_02CE   0x0002ce    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_02D8   0x0002d8    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_02E2   0x0002e2    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_02EC   0x0002ec    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_02F6   0x0002f6    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_0300   0x000300    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_030A   0x00030a    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_0314   0x000314    program     static C:\PIC18\Mine\testt.X\Main.asm
+                _Add_W_30   0x00044c    program     static C:\PIC18\Mine\testt.X\LCD.asm
+                _Add_W_37   0x000448    program     static C:\PIC18\Mine\testt.X\LCD.asm
+                   _D_1mS   0x0004c6    program     static C:\PIC18\Mine\testt.X\LCD.asm
+                   _D_2uS   0x0004d8    program     static C:\PIC18\Mine\testt.X\LCD.asm
+                    _D_mS   0x0004b2    program     static C:\PIC18\Mine\testt.X\LCD.asm
+                _Hex_cont   0x00044e    program     static C:\PIC18\Mine\testt.X\LCD.asm
+            back_to_start   0x0001ea    program     static C:\PIC18\Mine\testt.X\Main.asm
+                   clrLCD   0x000482    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+             display_time   0x0001ea    program     static C:\PIC18\Mine\testt.X\Main.asm
+                       ff   0x0001ce    program     static C:\PIC18\Mine\testt.X\Main.asm
+                  putcLCD   0x0003fc    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                     read   0x000174    program     static C:\PIC18\Mine\testt.X\Main.asm
+              sing_a_song   0x0002c0    program     static C:\PIC18\Mine\testt.X\Main.asm
+              Count_100uS   0x000062       data     static C:\PIC18\Mine\testt.X\LCD.asm
+                Count_1mS   0x000063       data     static C:\PIC18\Mine\testt.X\LCD.asm
+                 Count_mS   0x000064       data     static C:\PIC18\Mine\testt.X\LCD.asm
+                  Hex_Bfr   0x000066       data     static C:\PIC18\Mine\testt.X\LCD.asm
+                 LCD_Byte   0x000060       data     static C:\PIC18\Mine\testt.X\LCD.asm
+                 LCD_Temp   0x000061       data     static C:\PIC18\Mine\testt.X\LCD.asm
+                   W_BUFR   0x000065       data     static C:\PIC18\Mine\testt.X\LCD.asm
+
+
+
+                              Symbols - Sorted by Address
+                     Name    Address   Location    Storage File                     
+                ---------  ---------  ---------  --------- ---------                
+                     Main   0x00002a    program     static C:\PIC18\Mine\testt.X\Main.asm
+                    Start   0x00014c    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_014E   0x00014e    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_0156   0x000156    program     static C:\PIC18\Mine\testt.X\Main.asm
+                     read   0x000174    program     static C:\PIC18\Mine\testt.X\Main.asm
+                       ff   0x0001ce    program     static C:\PIC18\Mine\testt.X\Main.asm
+            back_to_start   0x0001ea    program     static C:\PIC18\Mine\testt.X\Main.asm
+             display_time   0x0001ea    program     static C:\PIC18\Mine\testt.X\Main.asm
+                  AD_Loop   0x0001ec    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_01F6   0x0001f6    program     static C:\PIC18\Mine\testt.X\Main.asm
+               LED_Rotate   0x000226    program     static C:\PIC18\Mine\testt.X\Main.asm
+             B_to_D_Value   0x00023c    program     static C:\PIC18\Mine\testt.X\Main.asm
+                Count_HND   0x000244    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_024A   0x00024a    program     static C:\PIC18\Mine\testt.X\Main.asm
+                Count_TEN   0x000256    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_025C   0x00025c    program     static C:\PIC18\Mine\testt.X\Main.asm
+                Count_ONE   0x000268    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_026E   0x00026e    program     static C:\PIC18\Mine\testt.X\Main.asm
+              READ_EEPROM   0x00027a    program     static C:\PIC18\Mine\testt.X\Main.asm
+             WRITE_EEPROM   0x00028c    program     static C:\PIC18\Mine\testt.X\Main.asm
+                    LOOP1   0x0002a8    program     static C:\PIC18\Mine\testt.X\Main.asm
+              C_Hold_Time   0x0002b4    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_02BC   0x0002bc    program     static C:\PIC18\Mine\testt.X\Main.asm
+              sing_a_song   0x0002c0    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_02C4   0x0002c4    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_02CE   0x0002ce    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_02D8   0x0002d8    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_02E2   0x0002e2    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_02EC   0x0002ec    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_02F6   0x0002f6    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_0300   0x000300    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_030A   0x00030a    program     static C:\PIC18\Mine\testt.X\Main.asm
+             _.org_3_0314   0x000314    program     static C:\PIC18\Mine\testt.X\Main.asm
+                  Sing_Mi   0x00031c    program     static C:\PIC18\Mine\testt.X\Main.asm
+                  Sing_Re   0x000322    program     static C:\PIC18\Mine\testt.X\Main.asm
+                  Sing_Do   0x000328    program     static C:\PIC18\Mine\testt.X\Main.asm
+                Sing_La_m   0x00032e    program     static C:\PIC18\Mine\testt.X\Main.asm
+                Sing_Si_m   0x000334    program     static C:\PIC18\Mine\testt.X\Main.asm
+                  Hi_ISRs   0x00033a    program     static C:\PIC18\Mine\testt.X\Main.asm
+                High_TMR1   0x000342    program     static C:\PIC18\Mine\testt.X\Main.asm
+           Timer1_0_times   0x000378    program     static C:\PIC18\Mine\testt.X\Main.asm
+                High_TMR3   0x000380    program     static C:\PIC18\Mine\testt.X\Main.asm
+                 Low_ISRs   0x00038e    program     static C:\PIC18\Mine\testt.X\Main.asm
+             Exit_Low_ISR   0x00039a    program     static C:\PIC18\Mine\testt.X\Main.asm
+                  InitLCD   0x00039c    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                  putcLCD   0x0003fc    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+             Send_Low_LCD   0x00040c    program     static C:\PIC18\Mine\testt.X\LCD.asm
+            Send_High_LCD   0x00040e    program     static C:\PIC18\Mine\testt.X\LCD.asm
+                PutHexLCD   0x00042a    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                Hex2ASCII   0x00043c    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                _Add_W_37   0x000448    program     static C:\PIC18\Mine\testt.X\LCD.asm
+                _Add_W_30   0x00044c    program     static C:\PIC18\Mine\testt.X\LCD.asm
+                _Hex_cont   0x00044e    program     static C:\PIC18\Mine\testt.X\LCD.asm
+                 Send_Cmd   0x000454    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+            Send_Low_4bit   0x000464    program     static C:\PIC18\Mine\testt.X\LCD.asm
+           Send_High_4bit   0x000466    program     static C:\PIC18\Mine\testt.X\LCD.asm
+                   clrLCD   0x000482    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                L1homeLCD   0x00048a    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                  L1_4LCD   0x000490    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                  L2_2LCD   0x000496    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                  L2_7LCD   0x00049c    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                 L2_12LCD   0x0004a2    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                L2homeLCD   0x0004a8    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                Delay_xMS   0x0004ae    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                    _D_mS   0x0004b2    program     static C:\PIC18\Mine\testt.X\LCD.asm
+                Delay_1mS   0x0004c0    program     extern C:\PIC18\Mine\testt.X\LCD.asm
+                   _D_1mS   0x0004c6    program     static C:\PIC18\Mine\testt.X\LCD.asm
+              Delay_100uS   0x0004d2    program     static C:\PIC18\Mine\testt.X\LCD.asm
+                   _D_2uS   0x0004d8    program     static C:\PIC18\Mine\testt.X\LCD.asm
+                 LCD_Byte   0x000060       data     static C:\PIC18\Mine\testt.X\LCD.asm
+                 LCD_Temp   0x000061       data     static C:\PIC18\Mine\testt.X\LCD.asm
+              Count_100uS   0x000062       data     static C:\PIC18\Mine\testt.X\LCD.asm
+                Count_1mS   0x000063       data     static C:\PIC18\Mine\testt.X\LCD.asm
+                 Count_mS   0x000064       data     static C:\PIC18\Mine\testt.X\LCD.asm
+                   W_BUFR   0x000065       data     static C:\PIC18\Mine\testt.X\LCD.asm
+                  Hex_Bfr   0x000066       data     static C:\PIC18\Mine\testt.X\LCD.asm
+
+

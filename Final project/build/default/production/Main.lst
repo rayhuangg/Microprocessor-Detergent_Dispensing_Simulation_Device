@@ -1,0 +1,2315 @@
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001         ;AD轉換26以下，無法完全顯示燈號
+                      00002         ;按小寫R請除排放次數
+                      00003         ;SW2按住AD轉換
+                      00004         ;SW3按一下開始排放
+                      00005         ;####有時間的話把閃爍改成CCP用LED9，不然太沒效率了
+                      00006         ; 給愛麗絲 323237216
+                      00007         
+                      00008         
+                      00009         list p=18f45k22         
+                      00010         #include        <p18f45k22.inc>
+                      00001         LIST
+                      00002 
+                      00003 ;==========================================================================
+                      00004 ; Build date : Jan 06 2020
+                      00005 ;  MPASM PIC18F45K22 processor include
+                      00006 ; 
+                      00007 ;  (c) Copyright 1999-2020 Microchip Technology, All rights reserved
+                      00008 ;==========================================================================
+                      00009 
+                      02795         LIST
+                      00011         
+                      00012         ;CONFIG  CCP2MX = PORTB3
+                      00013         
+                      00014         ;
+                      00015         ; 定義外部函式
+  0000                00016         EXTERN  InitLCD, putcLCD, Send_Cmd, L1homeLCD, L2homeLCD, clrLCD,PutHexLCD,L1_4LCD,Hex2ASCII,L2_
+                            2LCD,L2_7LCD,L2_12LCD
+                      00017         
+                      00018         CBLOCK      0x00
+  00000000            00019             C_Hold_Delay            
+  00000001            00020             div_1                       ;除數
+  00000002            00021             div_2                       ;被除數
+  00000003            00022             div_sum                     ;商
+  00000004            00023             div_temp        
+  00000005            00024             TMR1_VAL    
+  00000006            00025             LED_0_temp
+                      00026             ENDC
+                      00027                 
+                      00028         CBLOCK      0x10
+  00000010            00029             TMR1_H_byte_Temp      
+  00000011            00030             TMR1_L_byte_Temp      
+  00000012            00031             Escape_temp   
+                      00032 
+  00000013            00033             count_us                    
+  00000014            00034             count_10ms            
+  00000015            00035             count_200ms         
+                      00036 
+  00000016            00037             count_times                 ;排放次數(EEP
+  00000017            00038             count_times_past            ;上次循環的排放數值
+  00000018            00039             Timer1_Times                ;進中斷次數(數八次歸零)
+                      00040             ENDC
+                      00041         
+                      00042         
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00043         CBLOCK  0x20
+  00000020            00044             Data_EE_Addr                ;EEPROM資料位址
+  00000021            00045             Data_EE_Data                ;EEPROM資料
+  00000022            00046             ADRH                        ;高位元資料變數
+  00000023            00047             ADRL                        ;低位元資料變數
+  00000024            00048             Push_R                      ;檢查有沒有按R
+  00000025            00049             RX_Temp                     ;放USART接收到的值
+                      00050             
+  00000026            00051             HND
+  00000027            00052             TEN
+  00000028            00053             ONE
+  00000029            00054             BIN_Value
+                      00055             
+  0000002A            00056             Si_m_temp
+  0000002B            00057             point_1s_Times
+                      00058             ENDC    
+                      00059             
+                      00060             
+Warning[207]: Found label after column 1. (VAL_500US)
+  000000FA            00061         VAL_500US           equ     .250                
+Warning[207]: Found label after column 1. (VAL_10MS)
+  00000014            00062         VAL_10MS            equ     .20                 
+Warning[207]: Found label after column 1. (VAL_200MS)
+  00000014            00063         VAL_200MS           equ     .20     
+Warning[207]: Found label after column 1. (LED_0)
+  00000001            00064         LED_0               equ     b'00000001'    
+                      00065                     
+                      00066         #define                 EEP_ADRL        0               ; Define EEPROM Low Byte Address、排�
+                            �次數
+                      00067         #define                 EEP_ADRH        1               ; Define EEPROM High Byte Address
+                      00068 ;---------------------------------------音高頻率        
+Warning[207]: Found label after column 1. (La_m)
+  000000B1            00069         La_m    equ     0xB1
+Warning[207]: Found label after column 1. (Si_m)
+  0000009D            00070         Si_m    equ     0x9D    
+Warning[207]: Found label after column 1. (Do)
+  00000094            00071         Do      equ     0x94
+Warning[207]: Found label after column 1. (Re)
+  00000084            00072         Re      equ     0x84
+Warning[207]: Found label after column 1. (Mi)
+  00000076            00073         Mi      equ     0x76
+Warning[207]: Found label after column 1. (Fa)
+  0000006F            00074         Fa      equ     0x6F
+Warning[207]: Found label after column 1. (So)
+  00000063            00075         So      equ     0x63
+Warning[207]: Found label after column 1. (La)
+  00000058            00076         La      equ     0x58
+Warning[207]: Found label after column 1. (Si)
+  0000004E            00077         Si      equ     0x4E  
+                      00078 
+                      00079         org         0x00                
+000000 D???           00080         bra         Main
+                      00081         org         0x08                        
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000008 D???           00082         bra         Hi_ISRs
+                      00083         org         0x18
+000018 D???           00084         bra         Low_ISRs
+                      00085 
+                      00086         org         0x2A                
+00002A                00087 Main:
+00002A 8ED0           00088         bsf         RCON,       IPEN,   A       ;開啟中斷功能
+00002C 8EF2           00089         bsf         INTCON,     GIEH,   A
+00002E 8CF2           00090         bsf         INTCON,     GIEL,   A
+                      00091         
+                      00092     ;IO初始化
+000030 010F           00093         banksel     ANSELA
+000032 9938           00094         bcf         ANSELA, 4
+000034 9139           00095         bcf         ANSELB, 0
+000036 6B3B           00096         clrf        ANSELD
+000038 8892           00097         bsf         TRISA,  4
+00003A 8093           00098         bsf         TRISB,  0
+00003C 6A95           00099         clrf        TRISD
+00003E 6A8C           00100         clrf        LATD
+000040 9880           00101         bcf         PORTA,  4
+000042 9081           00102         bcf         PORTB,  0 
+                      00103     
+                      00104     ;AD初始化
+000044 010F           00105         banksel     ADCON0
+000046 0E01           00106         movlw       b'00000001'         ;選AN0 (VR1)
+000048 6EC2           00107         movwf       ADCON0                      
+00004A 0E00           00108         movlw       b'00000000'         ;VDD/VSS
+00004C 6EC1           00109         movwf       ADCON1                      
+00004E 0E3A           00110         movlw       b'00111010'         ;靠左對齊
+000050 6EC0           00111         movwf       ADCON2                      
+                      00112 
+000052 9C9D           00113         bcf         PIE1,   ADIE
+                      00114     
+                      00115     ;TIMER 1初始化 (LED亮燈)
+000054 010F           00116         banksel     T1CON
+000056 0EBA           00117         movlw       b'10111010'         ;前除8, 32768Hz
+000058 6ECD           00118         movwf       T1CON
+00005A 6ACF           00119         clrf        TMR1H
+00005C 6ACE           00120         clrf        TMR1L
+00005E 6A18           00121         clrf        Timer1_Times
+                      00122                 
+000060 809D           00123         bsf         PIE1,    TMR1IE
+000062 909E           00124         bcf         PIR1,    TMR1IF
+000064 809F           00125         bsf         IPR1,    TMR1IP
+                      00126         
+                      00127         
+                      00128     ;TIMER 3初始化 (LCD計時，0.1秒單位)
+000066 010F           00129         banksel     T3CON
+000068 0EBA           00130         movlw       b'10111010'         ;前除8, 32768Hz
+00006A 6EB1           00131         movwf       T3CON
+00006C 0EFE           00132         movlw       .254                ;0.1秒
+00006E 6EB3           00133         movwf       TMR3H
+000070 0E66           00134         movlw       .102
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE  4
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000072 6EB2           00135         movwf       TMR3L
+000074 6A2B           00136         clrf        point_1s_Times
+                      00137 
+                      00138                 
+000076 82A0           00139         bsf         PIE2,    TMR3IE
+000078 92A1           00140         bcf         PIR2,    TMR3IF
+00007A 82A2           00141         bsf         IPR2,    TMR3IP
+                      00142         
+                      00143     ;Initial USART as 9600,N,8,1
+00007C 0E26           00144         movlw   b'00100110'                             ; 8位元模式非同步傳輸 
+00007E 6EAC           00145         movwf   TXSTA1                                  ; 低鮑率設定，啟動傳輸功能
+                      00146 ;
+000080 0E90           00147         movlw   b'10010000'                             ; 啟動8位元資料接收功能
+000082 6EAB           00148         movwf   RCSTA1                                  ; 連續接收模式，停止位址偵測點
+                      00149 ;
+000084 0E08           00150         movlw   0x08                                            ; 設定16位元鮑率參數
+000086 6EB8           00151         movwf   BAUDCON1
+000088 0E03           00152         movlw   0x03                                            ; 設定鮑率為9600
+00008A 6EAF           00153         movwf   SPBRG1
+00008C 0E01           00154         movlw   0x01                                            
+00008E 6EB0           00155         movwf   SPBRGH1
+000090 9D3A           00156         bcf     ANSELC, 6, BANKED   ; 將TX1/RX1(RC6/RC7)腳位類比功能解除
+000092 9F3A           00157         bcf     ANSELC, 7, BANKED
+000094 9C94           00158         bcf     TRISC, 6
+000096 8E94           00159         bsf     TRISC, 7
+                      00160 ;
+000098 989E           00161         bcf             PIR1,TXIF                               ; 清除資料傳輸中斷旗標
+00009A 989D           00162         bcf             PIE1,TXIE                               ; 停止資料傳輸中斷功能
+                      00163 ;
+00009C 9A9F           00164         bcf             IPR1,RCIP                               ; 設定資料接收低優先中斷
+00009E 9A9E           00165         bcf             PIR1,RCIF                               ; 清除資料接收中斷旗標
+0000A0 8A9D           00166         bsf             PIE1,RCIE                               ; 啟動資料接收中斷
+                      00167 
+                      00168                                 
+                      00169         
+                      00170     ;CCP1 + TMR2 初始化 (Buzzer)     
+0000A2 010F           00171         banksel     ANSELC
+0000A4 953A           00172         bcf         ANSELC, ANSC2
+0000A6 9494           00173         bcf         TRISC,2             ; 設定RC2為輸出
+                      00174                 
+0000A8 0E0C           00175         movlw       B'00001100'         ; 設定CCP1為PWM模式，工作週期最高2位元為00
+0000AA 6EBD           00176         movwf       CCP1CON
+0000AC 0E3F           00177         movlw       0x3F
+0000AE 6EBE           00178         movwf       CCPR1L              ; 設定Duty Cyle
+0000B0 0E02           00179         movlw       B'00000010'         ; 設定TIMER2(沒啟動)，前除器為16倍
+0000B2 6EBA           00180         movwf       T2CON
+0000B4 6ABB           00181         clrf        PR2                 ; 設定週期
+                      00182         
+                      00183 
+                      00184 
+                      00185     ;LCD初始化       
+0000B6 EC?? F???      00186         call        InitLCD
+0000BA EC?? F???      00187         call        L1homeLCD
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE  5
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0000BE 0E4E           00188         movlw       'N'
+0000C0 EC?? F???      00189         call        putcLCD
+0000C4 0E6F           00190         movlw       'o'
+0000C6 EC?? F???      00191         call        putcLCD
+0000CA 0E23           00192         movlw       '#'
+0000CC EC?? F???      00193         call        putcLCD
+0000D0 0E3A           00194         movlw       ':'
+0000D2 EC?? F???      00195         call        putcLCD
+                      00196         
+                      00197 ;____________________________________________   
+0000D6 EC?? F???      00198         call        L2homeLCD
+0000DA 0E56           00199         movlw       'V'
+0000DC EC?? F???      00200         call        putcLCD
+0000E0 0E3A           00201         movlw       ':'
+0000E2 EC?? F???      00202         call        putcLCD
+                      00203         
+0000E6 EC?? F???      00204         call        L2_7LCD
+0000EA 0E54           00205         movlw       'T'
+0000EC EC?? F???      00206         call        putcLCD
+0000F0 0E69           00207         movlw       'i'
+0000F2 EC?? F???      00208         call        putcLCD
+0000F6 0E6D           00209         movlw       'm'
+0000F8 EC?? F???      00210         call        putcLCD
+0000FC 0E65           00211         movlw       'e'
+0000FE EC?? F???      00212         call        putcLCD
+000102 0E3A           00213         movlw       ':'
+000104 EC?? F???      00214         call        putcLCD
+                      00215         
+                      00216 ;____________________________________________   
+000108 0E00           00217         movlw       EEP_ADRL                    
+00010A 6E20           00218         movwf       Data_EE_Addr
+00010C EC?? F???      00219         call        READ_EEPROM         
+000110 50A8           00220         movf        EEDATA, W
+                      00221         
+000112 EC?? F???      00222         call        B_to_D_Value                  ;把EE數值做十進位轉換
+000116 EC?? F???      00223         call        L1_4LCD
+00011A 5026           00224         movf        HND,    W                     ;NOTE 不確定為何要這樣做才可以寫進去，
+                            用PutHexLCD會佔兩格空間
+00011C EC?? F???      00225         call        Hex2ASCII
+000120 EC?? F???      00226         call        putcLCD
+000124 5027           00227         movf        TEN,    W
+000126 EC?? F???      00228         call        Hex2ASCII
+00012A EC?? F???      00229         call        putcLCD
+00012E 5028           00230         movf        ONE,    W
+000130 EC?? F???      00231         call        Hex2ASCII
+000134 EC?? F???      00232         call        putcLCD
+                      00233         
+                      00234     ;雜七雜八初始化
+000138 0E01           00235         movlw       LED_0
+00013A 6E06           00236         movwf       LED_0_temp
+00013C 0E9D           00237         movlw       Si_m
+00013E 6E2A           00238         movwf       Si_m_temp
+                      00239         
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE  6
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00240         
+                      00241     ; Read  EEPROM #####
+                      00242 
+000140 0E00           00243         movlw       EEP_ADRL
+000142 6E20           00244         movwf       Data_EE_Addr
+000144 0E00           00245         movlw       .0
+000146 6E21           00246         movwf       Data_EE_Data
+000148 EC?? F???      00247         call        WRITE_EEPROM
+                      00248         
+00014C                00249 Start:          
+                      00250         
+00014C B081           00251         btfsc       PORTB,  0                ;按SW2/RB0才開始ADC
+00014E D???           00252         bra         $+4
+000150 EC?? F???      00253         call        AD_Loop
+000154 B880           00254         btfsc       PORTA,  4                ;按下SW1才開始執行亮燈
+000156 D???           00255         bra         $+4
+000158 EC?? F???      00256         call        LED_Rotate
+                      00257         
+00015C 5017           00258         movf        count_times_past,   W
+00015E 5C16           00259         subwf       count_times,    W           ;判斷有差值代表多一次了
+000160 B4D8           00260         btfsc       STATUS,     Z
+000162 D???           00261         bra         ff
+                      00262         
+000164 0E9D           00263         movlw       Si_m                        ;回復音高
+000166 6E2A           00264         movwf       Si_m_temp
+000168 0E00           00265         movlw       EEP_ADRL                    ;有改變再做寫入
+00016A 6E20           00266         movwf       Data_EE_Addr
+00016C C016 F021      00267         movff       count_times,  Data_EE_Data
+000170 EC?? F???      00268         call        WRITE_EEPROM
+                      00269                                 
+000174 0E00           00270 read    movlw       EEP_ADRL                     ;一寫入馬上讀取
+000176 6E20           00271         movwf       Data_EE_Addr
+000178 EC?? F???      00272         call        READ_EEPROM         
+00017C 50A8           00273         movf        EEDATA, W
+                      00274         
+00017E EC?? F???      00275         call        B_to_D_Value                  ;把EE數值做十進位轉換
+000182 EC?? F???      00276         call        L1_4LCD
+000186 5026           00277         movf        HND,    W                     ;NOTE 不確定為何要這樣做才可以寫進去，
+                            用PutHexLCD會佔兩格空間
+000188 EC?? F???      00278         call        Hex2ASCII
+00018C EC?? F???      00279         call        putcLCD
+000190 5027           00280         movf        TEN,    W
+000192 EC?? F???      00281         call        Hex2ASCII
+000196 EC?? F???      00282         call        putcLCD
+00019A 5028           00283         movf        ONE,    W
+00019C EC?? F???      00284         call        Hex2ASCII
+0001A0 EC?? F???      00285         call        putcLCD
+                      00286         
+0001A4 EC?? F???      00287         call        L2_12LCD
+0001A8 502B           00288         movf        point_1s_Times, W           ;顯示時間
+0001AA EC?? F???      00289         call        B_to_D_Value
+0001AE 5027           00290         movf        TEN,    W
+0001B0 EC?? F???      00291         call        Hex2ASCII
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE  7
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0001B4 EC?? F???      00292         call        putcLCD
+0001B8 0E2E           00293         movlw       a'.'
+0001BA EC?? F???      00294         call        putcLCD
+0001BE 5028           00295         movf        ONE,    W
+0001C0 EC?? F???      00296         call        Hex2ASCII
+0001C4 EC?? F???      00297         call        putcLCD
+0001C8 0E73           00298         movlw       a's'
+0001CA EC?? F???      00299         call        putcLCD
+                      00300         
+                      00301         
+0001CE C016 F017      00302 ff      movff       count_times,    count_times_past    ;把這次循環的排放次數記下來，下�
+                            �循環判斷有無差值決定是否寫入EE
+                      00303         
+0001D2 A024           00304         btfss       Push_R, 0                   ;按R的話清空次數
+0001D4 D???           00305         bra         back_to_start
+0001D6 6A16           00306         clrf        count_times                 ;清除次數，並將EEP也清除
+0001D8 6A17           00307         clrf        count_times_past
+0001DA 9024           00308         bcf         Push_R, 0                   
+0001DC 0E00           00309         movlw       EEP_ADRL                    
+0001DE 6E20           00310         movwf       Data_EE_Addr
+0001E0 0E00           00311         movlw       .0
+0001E2 6E21           00312         movwf       Data_EE_Data
+0001E4 EC?? F???      00313         call        WRITE_EEPROM
+0001E8 D???           00314         bra         read
+                      00315         
+0001EA                00316 display_time    
+                      00317         ;movf       point_1s_Times, W           ;顯示時間
+                      00318         ;call       L2_6LCD
+                      00319         ;call       PutHexLCD
+                      00320         
+                      00321         
+0001EA                00322 back_to_start
+0001EA D???           00323         bra         Start
+                      00324         
+                      00325                 
+                      00326 ;===============================================================================        
+                      00327         
+0001EC                00328 AD_Loop         
+0001EC EC?? F???      00329         call        C_Hold_Time         ; 延遲50uS完成類比訊號採樣保持
+0001F0 82C2           00330         bsf         ADCON0,     GO      ; 啟動類比訊號轉換
+0001F2 0000           00331         nop                                                             
+0001F4 B2C2           00332         btfsc       ADCON0,     GO      ; 檢查類比訊號轉換是否完成?
+0001F6 D???           00333         bra         $-4                 ; 否，迴圈繼續(倒退兩行, 4/2=2)
+0001F8 CFC4 FF8C      00334         movff       ADRESH,     LATD
+0001FC 50C4           00335         movf        ADRESH,     W
+0001FE EC?? F???      00336         call        B_to_D_Value
+000202 EC?? F???      00337         call        L2_2LCD             ;把電壓值放到LCD
+000206 5026           00338         movf        HND,    W           ;NOTE 不確定為何要這樣做才可以寫進去，只有用P
+                            utHexLCD會佔兩格空間
+000208 EC?? F???      00339         call        Hex2ASCII
+00020C EC?? F???      00340         call        putcLCD
+000210 5027           00341         movf        TEN,    W
+000212 EC?? F???      00342         call        Hex2ASCII
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE  8
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000216 EC?? F???      00343         call        putcLCD
+00021A 5028           00344         movf        ONE,    W
+00021C EC?? F???      00345         call        Hex2ASCII
+000220 EC?? F???      00346         call        putcLCD
+                      00347         
+000224 0012           00348         return
+                      00349 ;===============================================================================        
+                      00350 
+000226                00351 LED_Rotate:     
+000226 010F           00352         banksel     ADRESH
+000228 0E0A           00353         movlw       .10                 ; 255*10 約等於五秒/8 計時器要數的數值
+00022A 02C4           00354         mulwf       ADRESH              ; "MULWF" W和F相乘
+00022C 50F4           00355         movf        PRODH,  W,  A       ; 設定計時器高位元組資料(PRODH:乘法high byte)
+00022E 08FF           00356         sublw       0xFF
+000230 6ECF           00357         movwf       TMR1H
+000232 50F3           00358         movf        PRODL,  W,  A       ; 設定計時器低位元組資料(PRODL:乘法low byte)
+000234 08FF           00359         sublw       0xFF
+000236 6ECE           00360         movwf       TMR1L               
+                      00361                         
+000238 80CD           00362         bsf         T1CON,      TMR1ON            ;按SW1按下後才開始計時
+00023A 0012           00363         return
+                      00364         
+00023C                00365 B_to_D_Value:
+00023C 6E29           00366         movwf   BIN_Value
+00023E 6A26           00367         clrf    HND
+000240 6A27           00368         clrf    TEN
+000242 6A28           00369         clrf    ONE
+                      00370    
+000244                00371 Count_HND    
+000244 0100           00372         banksel     BIN_Value
+000246 0E64           00373         movlw   .100
+000248 6029           00374         cpfslt  BIN_Value
+00024A D???           00375         bra     $+4
+00024C EF?? F???      00376         goto    Count_TEN
+000250 5E29           00377         subwf   BIN_Value
+000252 2A26           00378         incf    HND
+000254 D???           00379         bra     Count_HND
+                      00380         
+000256                00381 Count_TEN
+000256 0100           00382         banksel     BIN_Value
+000258 0E0A           00383         movlw   .10
+00025A 6029           00384         cpfslt  BIN_Value
+00025C D???           00385         bra     $+4
+00025E EF?? F???      00386         goto    Count_ONE
+000262 5E29           00387         subwf   BIN_Value
+000264 2A27           00388         incf    TEN     
+000266 D???           00389         bra     Count_TEN       
+                      00390         
+000268                00391 Count_ONE
+000268 0100           00392         banksel     BIN_Value   
+00026A 0E01           00393         movlw   .1
+00026C 6029           00394         cpfslt  BIN_Value
+00026E D???           00395         bra     $+4
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE  9
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000270 0012           00396         return
+000272 5E29           00397         subwf   BIN_Value
+000274 2A28           00398         incf    ONE
+000276 D???           00399         bra     Count_ONE
+000278 0012           00400         return
+                      00401         
+                      00402         
+                      00403 ;------ INTERNAL EEPROM READ ------
+                      00404 ;
+00027A                00405 READ_EEPROM                                             ;讀取eeprom標準程序
+00027A C020 FFA9      00406                         movff   Data_EE_Addr,EEADR
+                      00407 ;
+00027E 9EF2           00408                         bcf     INTCON,GIE  
+000280 9EA6           00409                         bcf     EECON1,EEPGD
+000282 9CA6           00410                         bcf     EECON1,CFGS
+000284 80A6           00411                         bsf     EECON1,RD
+000286 50A8           00412                         movf    EEDATA,W
+000288 8EF2           00413                         bsf     INTCON,GIE  
+00028A 0012           00414                         return  
+                      00415         
+                      00416 ;----INTERNAL EEPROM WRITE-----
+                      00417 ;
+00028C                00418 WRITE_EEPROM                                            ;寫入eeprom標準程序
+00028C C020 FFA9      00419                  movff  Data_EE_Addr,EEADR
+000290 C021 FFA8      00420                  movff  Data_EE_Data,EEDATA
+                      00421 ;
+000294 9EA6           00422                  BCF     EECON1,EEPGD 
+000296 9CA6           00423                  BCF     EECON1,CFGS
+                      00424               
+000298 84A6           00425                  BSF     EECON1,WREN 
+00029A 9EF2           00426                  BCF     INTCON,GIE   
+                      00427 ;  
+00029C 0E55           00428                  MOVLW   0X55
+00029E 6EA7           00429                  MOVWF   EECON2
+0002A0 0EAA           00430                  MOVLW   0XAA
+0002A2 6EA7           00431                  MOVWF   EECON2      
+0002A4 82A6           00432                  BSF     EECON1,WR 
+                      00433 ;         
+0002A6 8EF2           00434                  BSF   INTCON,GIE 
+                      00435         
+0002A8 A8A1           00436 LOOP1           BTFSS   PIR2, EEIF              ; 檢查寫入動作是否完成
+0002AA EF?? F???      00437                 GOTO    LOOP1 
+                      00438 ;
+0002AE 94A6           00439                  BCF     EECON1,WREN   
+0002B0 98A1           00440                  BCF     PIR2,EEIF
+                      00441               
+0002B2 0012           00442                  RETURN         
+                      00443                  
+0002B4                00444 C_Hold_Time
+0002B4 0E7D           00445         movlw       .125
+0002B6 6E00           00446         movwf       C_Hold_Delay
+0002B8 0000           00447         nop
+0002BA 2E00           00448         decfsz      C_Hold_Delay,F
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 10
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0002BC D???           00449         bra         $-4
+0002BE 0012           00450         return
+                      00451         
+0002C0                00452 sing_a_song
+0002C0 0E00           00453         movlw       .0
+0002C2 6218           00454         cpfseq      Timer1_Times
+0002C4 D???           00455         bra         $+4
+0002C6 EC?? F???      00456         call        Sing_Mi
+                      00457         
+0002CA 0E01           00458         movlw       .1
+0002CC 6218           00459         cpfseq      Timer1_Times
+0002CE D???           00460         bra         $+4
+0002D0 EC?? F???      00461         call        Sing_Re
+                      00462         
+0002D4 0E02           00463         movlw       .2
+0002D6 6218           00464         cpfseq      Timer1_Times
+0002D8 D???           00465         bra         $+4
+0002DA EC?? F???      00466         call        Sing_Mi
+                      00467         
+0002DE 0E03           00468         movlw       .3
+0002E0 6218           00469         cpfseq      Timer1_Times
+0002E2 D???           00470         bra         $+4
+0002E4 EC?? F???      00471         call        Sing_Re
+                      00472         
+0002E8 0E04           00473         movlw       .4
+0002EA 6218           00474         cpfseq      Timer1_Times
+0002EC D???           00475         bra         $+4
+0002EE EC?? F???      00476         call        Sing_Mi
+                      00477         
+0002F2 0E05           00478         movlw       .5
+0002F4 6218           00479         cpfseq      Timer1_Times
+0002F6 D???           00480         bra         $+4
+0002F8 EC?? F???      00481         call        Sing_Si_m
+                      00482         
+0002FC 0E06           00483         movlw       .6
+0002FE 6218           00484         cpfseq      Timer1_Times
+000300 D???           00485         bra         $+4
+000302 EC?? F???      00486         call        Sing_Re
+                      00487         
+000306 0E07           00488         movlw       .7
+000308 6218           00489         cpfseq      Timer1_Times
+00030A D???           00490         bra         $+4
+00030C EC?? F???      00491         call        Sing_Do
+                      00492         
+000310 0E08           00493         movlw       .8
+000312 6218           00494         cpfseq      Timer1_Times
+000314 D???           00495         bra         $+4
+000316 EC?? F???      00496         call        Sing_La_m
+00031A 0012           00497         return
+                      00498 
+00031C 0E76           00499 Sing_Mi movlw       Mi
+00031E 6EBB           00500         movwf       PR2
+000320 0012           00501         return
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 11
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00502 
+000322 0E84           00503 Sing_Re movlw       Re
+000324 6EBB           00504         movwf       PR2
+000326 0012           00505         return
+                      00506 
+000328 0E94           00507 Sing_Do movlw       Do
+00032A 6EBB           00508         movwf       PR2
+00032C 0012           00509         return
+                      00510 
+00032E 0EB1           00511 Sing_La_m       movlw       La_m
+000330 6EBB           00512         movwf       PR2
+000332 0012           00513         return
+                      00514         
+000334 0E9D           00515 Sing_Si_m       movlw       Si_m
+000336 6EBB           00516         movwf       PR2
+000338 0012           00517         return
+                      00518 
+00033A                00519 Hi_ISRs:
+                      00520     
+                      00521 ;==========檢查是哪個旗標進中斷的========  
+00033A B09E           00522         btfsc   PIR1,    TMR1IF
+00033C D???           00523         bra     High_TMR1
+00033E B2A1           00524         btfsc   PIR2,    TMR3IF
+000340 D???           00525         bra     High_TMR3
+                      00526     
+                      00527     
+000342                00528 High_TMR1
+000342 010F           00529         banksel     LATD        
+000344 909E           00530         bcf         PIR1,   TMR1IF  
+                      00531 ;=============還原設定TIM1 值==============
+                      00532         
+000346 50F4           00533         movf        PRODH,  W,  A       ; 設定計時器高位元組資料(PRODH:乘法high byte)
+000348 08FF           00534         sublw       0xFF
+00034A 6ECF           00535         movwf       TMR1H
+00034C 50F3           00536         movf        PRODL,  W,  A       ; 設定計時器低位元組資料(PRODL:乘法low byte)
+00034E 08FF           00537         sublw       0xFF
+000350 6ECE           00538         movwf       TMR1L       
+                      00539 ;========================================
+                      00540         
+                      00541         
+000352 468C           00542         rlncf       LATD                        ;第一次空轉，再從下方設定bit0
+000354 0E00           00543         movlw       .0
+000356 6418           00544         cpfsgt      Timer1_Times
+000358 EC?? F???      00545         call        Timer1_0_times
+                      00546         
+                      00547         ;movlw      .9
+                      00548         ;subwf      Si_m_temp,  F
+                      00549         ;movf       Si_m_temp,  W
+                      00550         ;movwf      PR2
+00035C EC?? F???      00551         call        sing_a_song
+000360 84BA           00552         bsf         T2CON,      TMR2ON          ;開啟TMR2 (BUZZER)
+000362 80B1           00553         bsf         T3CON,      TMR3ON          ;開始累計秒數
+000364 2A18           00554         incf        Timer1_Times                ;進入中斷次數加一
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 12
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000366 0E09           00555         movlw       .9
+000368 6218           00556         cpfseq      Timer1_Times                ;八次一循環
+00036A 0011           00557         retfie      FAST
+00036C 90CD           00558         bcf         T1CON,  TMR1ON  
+00036E 90B1           00559         bcf         T3CON,  TMR3ON              ;累計幾秒也關閉
+000370 6A18           00560         clrf        Timer1_Times
+000372 2A16           00561         incf        count_times,    F           ;排放次數+1
+000374 94BA           00562         bcf         T2CON,      TMR2ON          ;關閉TMR2
+000376 0011           00563         retfie      FAST
+000378                00564 Timer1_0_times
+000378 C006 FF8C      00565         movff       LED_0_temp,  LATD           ;LED_0_temp = b'00000001'
+00037C 6A2B           00566         clrf        point_1s_Times              ;清除上次秒數
+00037E 0012           00567         return
+                      00568         
+                      00569         
+000380                00570 High_TMR3
+                      00571         
+000380 92A1           00572         bcf         PIR2,    TMR3IF
+000382 0EFE           00573         movlw       .254                ;0.1秒
+000384 6EB3           00574         movwf       TMR3H
+000386 0E66           00575         movlw       .102
+000388 6EB2           00576         movwf       TMR3L
+00038A 2A2B           00577         incf        point_1s_Times, F
+                      00578         
+00038C 0011           00579         retfie      FAST
+                      00580         
+                      00581 
+00038E                00582 Low_ISRs:
+                      00583 
+00038E 9A9E           00584         bcf         PIR1,   RCIF                                ; 清除資料接收中斷旗標
+000390 CFAE F025      00585         movff       RCREG1, RX_Temp                             ; 將接收資料顯示在LED
+                      00586 ;
+000394 0E52           00587         movlw   a'R'                                    ; 檢查接收資料是否為’r’?
+000396 6225           00588         cpfseq  RX_Temp
+000398 8024           00589         bsf     Push_R, 0                               ;設定清除旗標
+                      00590         
+00039A                00591 Exit_Low_ISR
+00039A 0011           00592         retfie  FAST                    ; 一般中斷返回
+                      00593 
+                      00594         END
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 13
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+A                                 00000000
+ABDEN                             00000000
+ABDOVF                            00000007
+ACCESS                            00000000
+ACKDT                             00000005
+ACKEN                             00000004
+ACKSTAT                           00000006
+ACKTIM                            00000007
+ACQT0                             00000003
+ACQT1                             00000004
+ACQT2                             00000005
+ADCMD                             00000000
+ADCON0                            00000FC2
+ADCON1                            00000FC1
+ADCON2                            00000FC0
+ADCS0                             00000000
+ADCS1                             00000001
+ADCS2                             00000002
+ADDEN                             00000003
+ADDEN1                            00000003
+ADDEN2                            00000003
+ADEN                              00000003
+ADFM                              00000007
+ADIE                              00000006
+ADIF                              00000006
+ADIP                              00000006
+ADON                              00000000
+ADRES                             00000FC3
+ADRESH                            00000FC4
+ADRESL                            00000FC3
+ADRH                              00000022
+ADRL                              00000023
+AD_Loop                           000001EC
+AHEN                              00000001
+AN0                               00000000
+AN1                               00000001
+AN10                              00000001
+AN11                              00000004
+AN12                              00000000
+AN13                              00000005
+AN14                              00000002
+AN15                              00000003
+AN16                              00000004
+AN17                              00000005
+AN18                              00000006
+AN19                              00000007
+AN2                               00000002
+AN20                              00000000
+AN21                              00000001
+AN22                              00000002
+AN23                              00000003
+AN24                              00000004
+AN25                              00000005
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 14
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+AN26                              00000006
+AN27                              00000007
+AN3                               00000003
+AN4                               00000005
+AN5                               00000000
+AN6                               00000001
+AN7                               00000002
+AN8                               00000002
+AN9                               00000003
+ANSA0                             00000000
+ANSA1                             00000001
+ANSA2                             00000002
+ANSA3                             00000003
+ANSA5                             00000005
+ANSB0                             00000000
+ANSB1                             00000001
+ANSB2                             00000002
+ANSB3                             00000003
+ANSB4                             00000004
+ANSB5                             00000005
+ANSC2                             00000002
+ANSC3                             00000003
+ANSC4                             00000004
+ANSC5                             00000005
+ANSC6                             00000006
+ANSC7                             00000007
+ANSD0                             00000000
+ANSD1                             00000001
+ANSD2                             00000002
+ANSD3                             00000003
+ANSD4                             00000004
+ANSD5                             00000005
+ANSD6                             00000006
+ANSD7                             00000007
+ANSE0                             00000000
+ANSE1                             00000001
+ANSE2                             00000002
+ANSELA                            00000F38
+ANSELB                            00000F39
+ANSELC                            00000F3A
+ANSELD                            00000F3B
+ANSELE                            00000F3C
+BANKED                            00000001
+BAUD1CON                          00000FB8
+BAUD2CON                          00000F70
+BAUDCON                           00000FB8
+BAUDCON1                          00000FB8
+BAUDCON2                          00000F70
+BAUDCTL                           00000FB8
+BCL1IE                            00000003
+BCL1IF                            00000003
+BCL1IP                            00000003
+BCL2IE                            00000006
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 15
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+BCL2IF                            00000006
+BCL2IP                            00000006
+BCLIE                             00000003
+BCLIF                             00000003
+BCLIP                             00000003
+BF                                00000000
+BGST                              00000005
+BGVST                             00000006
+BIN_Value                         00000029
+BOEN                              00000004
+BOR                               00000000
+BRG16                             00000003
+BRGH                              00000002
+BRGH1                             00000002
+BRGH2                             00000002
+BSR                               00000FE0
+B_to_D_Value                      0000023C
+C                                 00000000
+C12IN0M                           00000000
+C12IN0N                           00000000
+C12IN1M                           00000001
+C12IN1N                           00000001
+C12IN2M                           00000003
+C12IN2N                           00000003
+C12IN3M                           00000001
+C12IN3N                           00000001
+C1CH0                             00000000
+C1CH1                             00000001
+C1HYS                             00000003
+C1IE                              00000006
+C1IF                              00000006
+C1INP                             00000003
+C1IP                              00000006
+C1OE                              00000005
+C1ON                              00000007
+C1OUT_CM1CON                      00000006
+C1OUT_CM1CON0                     00000006
+C1OUT_PORTA                       00000004
+C1POL                             00000004
+C1R                               00000002
+C1RSEL                            00000005
+C1SP                              00000003
+C1SYNC                            00000001
+C1TSEL0                           00000000
+C1TSEL1                           00000001
+C2CH0                             00000000
+C2CH1                             00000001
+C2HYS                             00000002
+C2IE                              00000005
+C2IF                              00000005
+C2INP                             00000002
+C2IP                              00000005
+C2OE                              00000005
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 16
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+C2ON                              00000007
+C2OUT_CM2CON                      00000006
+C2OUT_CM2CON0                     00000006
+C2OUT_PORTA                       00000005
+C2POL                             00000004
+C2R                               00000002
+C2RSEL                            00000004
+C2SP                              00000003
+C2SYNC                            00000000
+C2TSEL0                           00000003
+C2TSEL1                           00000004
+C3TSEL0                           00000006
+C3TSEL1                           00000007
+C4TSEL0                           00000000
+C4TSEL1                           00000001
+C5TSEL0                           00000002
+C5TSEL1                           00000003
+CCP1                              00000002
+CCP1AS0                           00000004
+CCP1AS1                           00000005
+CCP1AS2                           00000006
+CCP1ASE                           00000007
+CCP1CON                           00000FBD
+CCP1IE                            00000002
+CCP1IF                            00000002
+CCP1IP                            00000002
+CCP1M0                            00000000
+CCP1M1                            00000001
+CCP1M2                            00000002
+CCP1M3                            00000003
+CCP1MD                            00000000
+CCP2AS                            00000F64
+CCP2AS0                           00000004
+CCP2AS1                           00000005
+CCP2AS2                           00000006
+CCP2ASE                           00000007
+CCP2CON                           00000F66
+CCP2IE                            00000000
+CCP2IF                            00000000
+CCP2IP                            00000000
+CCP2M0                            00000000
+CCP2M1                            00000001
+CCP2M2                            00000002
+CCP2M3                            00000003
+CCP2MD                            00000001
+CCP2_PORTB                        00000003
+CCP2_PORTC                        00000001
+CCP3AS                            00000F5B
+CCP3AS0                           00000004
+CCP3AS1                           00000005
+CCP3AS2                           00000006
+CCP3ASE                           00000007
+CCP3CON                           00000F5D
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 17
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+CCP3IE                            00000000
+CCP3IF                            00000000
+CCP3IP                            00000000
+CCP3M0                            00000000
+CCP3M1                            00000001
+CCP3M2                            00000002
+CCP3M3                            00000003
+CCP3MD                            00000002
+CCP3_PORTB                        00000005
+CCP3_PORTE                        00000000
+CCP4                              00000001
+CCP4CON                           00000F57
+CCP4IE                            00000001
+CCP4IF                            00000001
+CCP4IP                            00000001
+CCP4M0                            00000000
+CCP4M1                            00000001
+CCP4M2                            00000002
+CCP4M3                            00000003
+CCP4MD                            00000003
+CCP5                              00000002
+CCP5CON                           00000F54
+CCP5IE                            00000002
+CCP5IF                            00000002
+CCP5IP                            00000002
+CCP5M0                            00000000
+CCP5M1                            00000001
+CCP5M2                            00000002
+CCP5M3                            00000003
+CCP5MD                            00000004
+CCPR1                             00000FBE
+CCPR1H                            00000FBF
+CCPR1L                            00000FBE
+CCPR2                             00000F67
+CCPR2H                            00000F68
+CCPR2L                            00000F67
+CCPR3                             00000F5E
+CCPR3H                            00000F5F
+CCPR3L                            00000F5E
+CCPR4                             00000F58
+CCPR4H                            00000F59
+CCPR4L                            00000F58
+CCPR5                             00000F55
+CCPR5H                            00000F56
+CCPR5L                            00000F55
+CCPTMRS0                          00000F49
+CCPTMRS1                          00000F48
+CFGS                              00000006
+CHS0                              00000002
+CHS1                              00000003
+CHS2                              00000004
+CHS3                              00000005
+CHS4                              00000006
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 18
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+CK                                00000006
+CK1                               00000006
+CK2                               00000006
+CKE                               00000006
+CKP                               00000004
+CKTXP                             00000004
+CM12CON                           00000F77
+CM1CON                            00000F79
+CM1CON0                           00000F79
+CM2CON                            00000F78
+CM2CON0                           00000F78
+CM2CON1                           00000F77
+CMP1MD                            00000001
+CMP2MD                            00000002
+CREN                              00000004
+CREN1                             00000004
+CREN2                             00000004
+CSRC                              00000007
+CSRC1                             00000007
+CSRC2                             00000007
+CTED1                             00000002
+CTED2                             00000003
+CTMUCON0                          00000F45
+CTMUCON1                          00000F44
+CTMUCONH                          00000F45
+CTMUCONL                          00000F44
+CTMUEN                            00000007
+CTMUICON                          00000F43
+CTMUICONH                         00000F43
+CTMUIE                            00000003
+CTMUIF                            00000003
+CTMUIP                            00000003
+CTMUMD                            00000003
+CTMUSIDL                          00000005
+CTPLS                             00000002
+CTTRIG                            00000000
+CVREF                             00000002
+C_Hold_Delay                      00000000
+C_Hold_Time                       000002B4
+Count_HND                         00000244
+Count_ONE                         00000268
+Count_TEN                         00000256
+D                                 00000005
+DACCON0                           00000F41
+DACCON1                           00000F40
+DACEN                             00000007
+DACLPS                            00000006
+DACNSS                            00000000
+DACOE                             00000005
+DACOUT                            00000002
+DACPSS0                           00000002
+DACPSS1                           00000003
+DACR0                             00000000
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 19
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+DACR1                             00000001
+DACR2                             00000002
+DACR3                             00000003
+DACR4                             00000004
+DC                                00000001
+DC1B0                             00000004
+DC1B1                             00000005
+DC2B0                             00000004
+DC2B1                             00000005
+DC3B0                             00000004
+DC3B1                             00000005
+DC4B0                             00000004
+DC4B1                             00000005
+DC5B0                             00000004
+DC5B1                             00000005
+DDRA                              TRISA
+DDRB                              TRISB
+DDRC                              TRISC
+DDRD                              TRISD
+DDRE                              TRISE
+DHEN                              00000000
+DONE                              00000001
+DT1                               00000007
+DT2                               00000007
+DTRXP                             00000005
+D_A                               00000005
+D_NOT_A                           00000005
+Data_EE_Addr                      00000020
+Data_EE_Data                      00000021
+Do                                00000094
+ECCP1AS                           00000FB6
+ECCP2AS                           00000F64
+ECCP3AS                           00000F5B
+ECCPAS                            00000FB6
+ECCPAS0                           00000004
+ECCPAS1                           00000005
+ECCPAS2                           00000006
+ECCPASE                           00000007
+EDG1POL                           00000004
+EDG1SEL0                          00000002
+EDG1SEL1                          00000003
+EDG1STAT                          00000000
+EDG2POL                           00000007
+EDG2SEL0                          00000005
+EDG2SEL1                          00000006
+EDG2STAT                          00000001
+EDGEN                             00000003
+EDGSEQEN                          00000002
+EEADR                             00000FA9
+EEADR0                            00000000
+EEADR1                            00000001
+EEADR2                            00000002
+EEADR3                            00000003
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 20
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+EEADR4                            00000004
+EEADR5                            00000005
+EEADR6                            00000006
+EEADR7                            00000007
+EECON1                            00000FA6
+EECON2                            00000FA7
+EEDATA                            00000FA8
+EEIE                              00000004
+EEIF                              00000004
+EEIP                              00000004
+EEPGD                             00000007
+EEP_ADRH                          1
+EEP_ADRL                          0
+Escape_temp                       00000012
+Exit_Low_ISR                      0000039A
+FAST                              00000001
+FERR                              00000002
+FERR1                             00000002
+FERR2                             00000002
+FLT0                              00000000
+FREE                              00000004
+FSR0                              00000000
+FSR0H                             00000FEA
+FSR0L                             00000FE9
+FSR1                              00000001
+FSR1H                             00000FE2
+FSR1L                             00000FE1
+FSR2                              00000002
+FSR2H                             00000FDA
+FSR2L                             00000FD9
+FVRCON                            00000F42
+FVREN                             00000007
+FVRS0                             00000004
+FVRS1                             00000005
+FVRST                             00000006
+Fa                                0000006F
+GCEN                              00000007
+GIE                               00000007
+GIEH                              00000007
+GIEL                              00000006
+GIE_GIEH                          00000007
+GO                                00000001
+GO_DONE                           00000001
+GO_NOT_DONE                       00000001
+HFIOFS                            00000002
+HLVDCON                           00000F9C
+HLVDEN                            00000004
+HLVDIE                            00000002
+HLVDIF                            00000002
+HLVDIN                            00000005
+HLVDIP                            00000002
+HLVDL0                            00000000
+HLVDL1                            00000001
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 21
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+HLVDL2                            00000002
+HLVDL3                            00000003
+HND                               00000026
+Hex2ASCII                         00000000
+Hi_ISRs                           0000033A
+High_TMR1                         00000342
+High_TMR3                         00000380
+IDISSEN                           00000001
+IDLEN                             00000007
+INDF0                             00000FEF
+INDF1                             00000FE7
+INDF2                             00000FDF
+INT0                              00000000
+INT0E                             00000004
+INT0F                             00000001
+INT0IE                            00000004
+INT0IF                            00000001
+INT1                              00000001
+INT1E                             00000003
+INT1F                             00000000
+INT1IE                            00000003
+INT1IF                            00000000
+INT1IP                            00000006
+INT1P                             00000006
+INT2                              00000002
+INT2E                             00000004
+INT2F                             00000001
+INT2IE                            00000004
+INT2IF                            00000001
+INT2IP                            00000007
+INT2P                             00000007
+INTCON                            00000FF2
+INTCON2                           00000FF1
+INTCON3                           00000FF0
+INTEDG0                           00000006
+INTEDG1                           00000005
+INTEDG2                           00000004
+INTSRC                            00000007
+IOCB                              00000F62
+IOCB4                             00000004
+IOCB5                             00000005
+IOCB6                             00000006
+IOCB7                             00000007
+IOFS                              00000002
+IPEN                              00000007
+IPR1                              00000F9F
+IPR2                              00000FA2
+IPR3                              00000FA5
+IPR4                              00000F7C
+IPR5                              00000F7F
+IRCF0                             00000004
+IRCF1                             00000005
+IRCF2                             00000006
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 22
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+IRNG0                             00000000
+IRNG1                             00000001
+IRVST                             00000005
+ITRIM0                            00000002
+ITRIM1                            00000003
+ITRIM2                            00000004
+ITRIM3                            00000005
+ITRIM4                            00000006
+ITRIM5                            00000007
+IVRST                             00000005
+InitLCD                           00000000
+KBI0                              00000004
+KBI1                              00000005
+KBI2                              00000006
+KBI3                              00000007
+L1_4LCD                           00000000
+L1homeLCD                         00000000
+L2_12LCD                          00000000
+L2_2LCD                           00000000
+L2_7LCD                           00000000
+L2homeLCD                         00000000
+LATA                              00000F89
+LATA0                             00000000
+LATA1                             00000001
+LATA2                             00000002
+LATA3                             00000003
+LATA4                             00000004
+LATA5                             00000005
+LATA6                             00000006
+LATA7                             00000007
+LATB                              00000F8A
+LATB0                             00000000
+LATB1                             00000001
+LATB2                             00000002
+LATB3                             00000003
+LATB4                             00000004
+LATB5                             00000005
+LATB6                             00000006
+LATB7                             00000007
+LATC                              00000F8B
+LATC0                             00000000
+LATC1                             00000001
+LATC2                             00000002
+LATC3                             00000003
+LATC4                             00000004
+LATC5                             00000005
+LATC6                             00000006
+LATC7                             00000007
+LATD                              00000F8C
+LATD0                             00000000
+LATD1                             00000001
+LATD2                             00000002
+LATD3                             00000003
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 23
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+LATD4                             00000004
+LATD5                             00000005
+LATD6                             00000006
+LATD7                             00000007
+LATE                              00000F8D
+LATE0                             00000000
+LATE1                             00000001
+LATE2                             00000002
+LED_0                             00000001
+LED_0_temp                        00000006
+LED_Rotate                        00000226
+LFIOFS                            00000000
+LOOP1                             000002A8
+LVDCON                            00000F9C
+LVDEN                             00000004
+LVDIE                             00000002
+LVDIF                             00000002
+LVDIN                             00000005
+LVDIP                             00000002
+LVDL0                             00000000
+LVDL1                             00000001
+LVDL2                             00000002
+LVDL3                             00000003
+LVV0                              00000000
+LVV1                              00000001
+LVV2                              00000002
+LVV3                              00000003
+La                                00000058
+La_m                              000000B1
+Low_ISRs                          0000038E
+MC1OUT                            00000007
+MC2OUT                            00000006
+MCLR                              00000003
+MFIOFS                            00000001
+MFIOSEL                           00000004
+MSK0                              00000000
+MSK1                              00000001
+MSK2                              00000002
+MSK3                              00000003
+MSK4                              00000004
+MSK5                              00000005
+MSK6                              00000006
+MSK7                              00000007
+MSSP1MD                           00000006
+MSSP2MD                           00000007
+Main                              0000002A
+Mi                                00000076
+N                                 00000004
+NOT_A                             00000005
+NOT_ADDRESS                       00000005
+NOT_BOR                           00000000
+NOT_DONE                          00000001
+NOT_MCLR                          00000003
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 24
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+NOT_PD                            00000002
+NOT_POR                           00000001
+NOT_RBPU                          00000007
+NOT_RI                            00000004
+NOT_SS                            00000005
+NOT_SS1                           00000005
+NOT_SS2                           00000003
+NOT_T1SYNC                        00000002
+NOT_T3SYNC                        00000002
+NOT_T5SYNC                        00000002
+NOT_TO                            00000003
+NOT_W                             00000002
+NOT_WRITE                         00000002
+NVCFG0                            00000000
+NVCFG1                            00000001
+OERR                              00000001
+OERR1                             00000001
+OERR2                             00000001
+ONE                               00000028
+OSCCON                            00000FD3
+OSCCON2                           00000FD2
+OSCFIE                            00000007
+OSCFIF                            00000007
+OSCFIP                            00000007
+OSCTUNE                           00000F9B
+OSTS                              00000003
+OV                                00000003
+P                                 00000004
+P1A                               00000002
+P1B                               00000005
+P1C                               00000006
+P1D                               00000007
+P1DC0                             00000000
+P1DC1                             00000001
+P1DC2                             00000002
+P1DC3                             00000003
+P1DC4                             00000004
+P1DC5                             00000005
+P1DC6                             00000006
+P1M0                              00000006
+P1M1                              00000007
+P1RSEN                            00000007
+P1SSAC0                           00000002
+P1SSAC1                           00000003
+P1SSBD0                           00000000
+P1SSBD1                           00000001
+P2A_PORTB                         00000003
+P2A_PORTC                         00000001
+P2B_PORTC                         00000000
+P2B_PORTD                         00000002
+P2C                               00000003
+P2D                               00000004
+P2DC0                             00000000
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 25
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+P2DC1                             00000001
+P2DC2                             00000002
+P2DC3                             00000003
+P2DC4                             00000004
+P2DC5                             00000005
+P2DC6                             00000006
+P2M0                              00000006
+P2M1                              00000007
+P2RSEN                            00000007
+P2SSAC0                           00000002
+P2SSAC1                           00000003
+P2SSBD0                           00000000
+P2SSBD1                           00000001
+P3A_PORTB                         00000005
+P3A_PORTE                         00000000
+P3B                               00000001
+P3DC0                             00000000
+P3DC1                             00000001
+P3DC2                             00000002
+P3DC3                             00000003
+P3DC4                             00000004
+P3DC5                             00000005
+P3DC6                             00000006
+P3M0                              00000006
+P3M1                              00000007
+P3RSEN                            00000007
+P3SSAC0                           00000002
+P3SSAC1                           00000003
+P3SSBD0                           00000000
+P3SSBD1                           00000001
+PC                                00000FF9
+PCIE                              00000006
+PCL                               00000FF9
+PCLATH                            00000FFA
+PCLATU                            00000FFB
+PD                                00000002
+PDC0                              00000000
+PDC1                              00000001
+PDC2                              00000002
+PDC3                              00000003
+PDC4                              00000004
+PDC5                              00000005
+PDC6                              00000006
+PEIE                              00000006
+PEIE_GIEL                         00000006
+PEN                               00000002
+PGC                               00000006
+PGD                               00000007
+PIE1                              00000F9D
+PIE2                              00000FA0
+PIE3                              00000FA3
+PIE4                              00000F7A
+PIE5                              00000F7D
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 26
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+PIR1                              00000F9E
+PIR2                              00000FA1
+PIR3                              00000FA4
+PIR4                              00000F7B
+PIR5                              00000F7E
+PLLEN                             00000006
+PLLRDY                            00000007
+PLUSW0                            00000FEB
+PLUSW1                            00000FE3
+PLUSW2                            00000FDB
+PMD0                              00000F3F
+PMD1                              00000F3E
+PMD2                              00000F3D
+POR                               00000001
+PORTA                             00000F80
+PORTB                             00000F81
+PORTC                             00000F82
+PORTD                             00000F83
+PORTE                             00000F84
+POSTDEC0                          00000FED
+POSTDEC1                          00000FE5
+POSTDEC2                          00000FDD
+POSTINC0                          00000FEE
+POSTINC1                          00000FE6
+POSTINC2                          00000FDE
+PR2                               00000FBB
+PR4                               00000F52
+PR6                               00000F4B
+PREINC0                           00000FEC
+PREINC1                           00000FE4
+PREINC2                           00000FDC
+PRISD                             00000002
+PROD                              00000FF3
+PRODH                             00000FF4
+PRODL                             00000FF3
+PRSEN                             00000007
+PSA                               00000003
+PSS1AC0                           00000002
+PSS1AC1                           00000003
+PSS1BD0                           00000000
+PSS1BD1                           00000001
+PSS2AC0                           00000002
+PSS2AC1                           00000003
+PSS2BD0                           00000000
+PSS2BD1                           00000001
+PSS3AC0                           00000002
+PSS3AC1                           00000003
+PSS3BD0                           00000000
+PSS3BD1                           00000001
+PSSAC0                            00000002
+PSSAC1                            00000003
+PSSBD0                            00000000
+PSSBD1                            00000001
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 27
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+PSTR1CON                          00000FB9
+PSTR2CON                          00000F63
+PSTR3CON                          00000F5A
+PSTRCON                           00000FB9
+PVCFG0                            00000002
+PVCFG1                            00000003
+PWM1CON                           00000FB7
+PWM2CON                           00000F65
+PWM3CON                           00000F5C
+PWMCON                            00000FB7
+Push_R                            00000024
+PutHexLCD                         00000000
+R                                 00000002
+RA0                               00000000
+RA1                               00000001
+RA2                               00000002
+RA3                               00000003
+RA4                               00000004
+RA5                               00000005
+RA6                               00000006
+RA7                               00000007
+RB0                               00000000
+RB1                               00000001
+RB2                               00000002
+RB3                               00000003
+RB4                               00000004
+RB5                               00000005
+RB6                               00000006
+RB7                               00000007
+RBIE                              00000003
+RBIF                              00000000
+RBIP                              00000000
+RBPU                              00000007
+RC0                               00000000
+RC1                               00000001
+RC1IE                             00000005
+RC1IF                             00000005
+RC1IP                             00000005
+RC1REG                            00000FAE
+RC1STA                            00000FAB
+RC2                               00000002
+RC2IE                             00000005
+RC2IF                             00000005
+RC2IP                             00000005
+RC2REG                            00000F74
+RC2STA                            00000F71
+RC3                               00000003
+RC4                               00000004
+RC5                               00000005
+RC6                               00000006
+RC7                               00000007
+RCEN                              00000003
+RCIDL                             00000006
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 28
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+RCIE                              00000005
+RCIF                              00000005
+RCIP                              00000005
+RCON                              00000FD0
+RCREG                             00000FAE
+RCREG1                            00000FAE
+RCREG2                            00000F74
+RCSTA                             00000FAB
+RCSTA1                            00000FAB
+RCSTA2                            00000F71
+RD                                00000000
+RD0                               00000000
+RD1                               00000001
+RD16                              00000001
+RD2                               00000002
+RD3                               00000003
+RD4                               00000004
+RD5                               00000005
+RD6                               00000006
+RD7                               00000007
+RE0                               00000000
+RE1                               00000001
+RE2                               00000002
+RE3                               00000003
+READ_EEPROM                       0000027A
+RI                                00000004
+RSEN                              00000001
+RX                                00000007
+RX1                               00000007
+RX2                               00000007
+RX9                               00000006
+RX91                              00000006
+RX92                              00000006
+RX9D                              00000000
+RX9D1                             00000000
+RX9D2                             00000000
+RX_Temp                           00000025
+R_NOT_W                           00000002
+R_W                               00000002
+Re                                00000084
+S                                 00000003
+SBCDE                             00000002
+SBOREN                            00000006
+SCIE                              00000005
+SCK                               00000003
+SCK1                              00000003
+SCK2                              00000000
+SCKP                              00000004
+SCL                               00000003
+SCL1                              00000003
+SCL2                              00000000
+SCS0                              00000000
+SCS1                              00000001
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 29
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+SDA                               00000004
+SDA1                              00000004
+SDA2                              00000001
+SDAHT                             00000003
+SDI                               00000004
+SDI1                              00000004
+SDI2                              00000001
+SDO                               00000005
+SDO1                              00000005
+SDO2                              00000004
+SEN                               00000000
+SENDB                             00000003
+SENDB1                            00000003
+SENDB2                            00000003
+SLRA                              00000000
+SLRB                              00000001
+SLRC                              00000002
+SLRCON                            00000F60
+SLRD                              00000003
+SLRE                              00000004
+SMP                               00000007
+SOSCGO                            00000003
+SOSCRUN                           00000006
+SP0                               00000000
+SP1                               00000001
+SP1BRG                            00000FAF
+SP1BRGH                           00000FB0
+SP2                               00000002
+SP2BRG                            00000F75
+SP2BRGH                           00000F76
+SP3                               00000003
+SP4                               00000004
+SPBRG                             00000FAF
+SPBRG1                            00000FAF
+SPBRG2                            00000F75
+SPBRGH                            00000FB0
+SPBRGH1                           00000FB0
+SPBRGH2                           00000F76
+SPEN                              00000007
+SPEN1                             00000007
+SPEN2                             00000007
+SRCLK0                            00000004
+SRCLK1                            00000005
+SRCLK2                            00000006
+SRCON0                            00000F47
+SRCON1                            00000F46
+SREN                              00000005
+SREN1                             00000005
+SREN2                             00000005
+SRI                               00000000
+SRLEN                             00000007
+SRNQ                              00000005
+SRNQEN                            00000002
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 30
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+SRPR                              00000000
+SRPS                              00000001
+SRQ                               00000004
+SRQEN                             00000003
+SRRC1E                            00000000
+SRRC2E                            00000001
+SRRCKE                            00000002
+SRRPE                             00000003
+SRSC1E                            00000004
+SRSC2E                            00000005
+SRSCKE                            00000006
+SRSPE                             00000007
+SS                                00000005
+SS1                               00000005
+SS2                               00000003
+SSP1ADD                           00000FC8
+SSP1BUF                           00000FC9
+SSP1CON1                          00000FC6
+SSP1CON2                          00000FC5
+SSP1CON3                          00000FCB
+SSP1IE                            00000003
+SSP1IF                            00000003
+SSP1IP                            00000003
+SSP1MSK                           00000FCA
+SSP1STAT                          00000FC7
+SSP2ADD                           00000F6E
+SSP2BUF                           00000F6F
+SSP2CON1                          00000F6C
+SSP2CON2                          00000F6B
+SSP2CON3                          00000F69
+SSP2IE                            00000007
+SSP2IF                            00000007
+SSP2IP                            00000007
+SSP2MSK                           00000F6A
+SSP2STAT                          00000F6D
+SSPADD                            00000FC8
+SSPBUF                            00000FC9
+SSPCON1                           00000FC6
+SSPCON2                           00000FC5
+SSPCON3                           00000FCB
+SSPEN                             00000005
+SSPIE                             00000003
+SSPIF                             00000003
+SSPIP                             00000003
+SSPM0                             00000000
+SSPM1                             00000001
+SSPM2                             00000002
+SSPM3                             00000003
+SSPMSK                            00000FCA
+SSPOV                             00000006
+SSPSTAT                           00000FC7
+STATUS                            00000FD8
+STKFUL                            00000007
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 31
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+STKOVF                            00000007
+STKPTR                            00000FFC
+STKPTR0                           00000000
+STKPTR1                           00000001
+STKPTR2                           00000002
+STKPTR3                           00000003
+STKPTR4                           00000004
+STKUNF                            00000006
+STR1A                             00000000
+STR1B                             00000001
+STR1C                             00000002
+STR1D                             00000003
+STR1SYNC                          00000004
+STR2A                             00000000
+STR2B                             00000001
+STR2C                             00000002
+STR2D                             00000003
+STR2SYNC                          00000004
+STR3A                             00000000
+STR3B                             00000001
+STR3C                             00000002
+STR3D                             00000003
+STR3SYNC                          00000004
+SWDTE                             00000000
+SWDTEN                            00000000
+SYNC                              00000004
+SYNC1                             00000004
+SYNC2                             00000004
+Send_Cmd                          00000000
+Si                                0000004E
+Si_m                              0000009D
+Si_m_temp                         0000002A
+Sing_Do                           00000328
+Sing_La_m                         0000032E
+Sing_Mi                           0000031C
+Sing_Re                           00000322
+Sing_Si_m                         00000334
+So                                00000063
+Start                             0000014C
+T08BIT                            00000006
+T0CKI                             00000004
+T0CON                             00000FD5
+T0CS                              00000005
+T0IE                              00000005
+T0IF                              00000002
+T0PS0                             00000000
+T0PS1                             00000001
+T0PS2                             00000002
+T0SE                              00000004
+T1CKI                             00000000
+T1CKPS0                           00000004
+T1CKPS1                           00000005
+T1CON                             00000FCD
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 32
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+T1G                               00000005
+T1GCON                            00000FCC
+T1GGO                             00000003
+T1GGO_NOT_DONE                    00000003
+T1GPOL                            00000006
+T1GSPM                            00000004
+T1GSS0                            00000000
+T1GSS1                            00000001
+T1GTM                             00000005
+T1GVAL                            00000002
+T1G_DONE                          00000003
+T1OSCEN                           00000003
+T1OSI                             00000001
+T1OSO                             00000000
+T1RD16                            00000001
+T1SOSCEN                          00000003
+T1SYNC                            00000002
+T2CKPS0                           00000000
+T2CKPS1                           00000001
+T2CON                             00000FBA
+T2OUTPS0                          00000003
+T2OUTPS1                          00000004
+T2OUTPS2                          00000005
+T2OUTPS3                          00000006
+T3CKI_PORTB                       00000005
+T3CKI_PORTC                       00000000
+T3CKPS0                           00000004
+T3CKPS1                           00000005
+T3CON                             00000FB1
+T3G                               00000000
+T3GCON                            00000FB4
+T3GGO                             00000003
+T3GGO_NOT_DONE                    00000003
+T3GPOL                            00000006
+T3GSPM                            00000004
+T3GSS0                            00000000
+T3GSS1                            00000001
+T3GTM                             00000005
+T3GVAL                            00000002
+T3G_DONE                          00000003
+T3OSCEN                           00000003
+T3RD16                            00000001
+T3SOSCEN                          00000003
+T4CKPS0                           00000000
+T4CKPS1                           00000001
+T4CON                             00000F51
+T4OUTPS0                          00000003
+T4OUTPS1                          00000004
+T4OUTPS2                          00000005
+T4OUTPS3                          00000006
+T5CKI                             00000002
+T5CKPS0                           00000004
+T5CKPS1                           00000005
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 33
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+T5CON                             00000F4E
+T5G                               00000004
+T5GCON                            00000F4D
+T5GGO                             00000003
+T5GGO_NOT_DONE                    00000003
+T5GPOL                            00000006
+T5GSPM                            00000004
+T5GSS0                            00000000
+T5GSS1                            00000001
+T5GTM                             00000005
+T5GVAL                            00000002
+T5G_DONE                          00000003
+T5RD16                            00000001
+T5SOSCEN                          00000003
+T5SYNC                            00000002
+T6CKPS0                           00000000
+T6CKPS1                           00000001
+T6CON                             00000F4A
+T6OUTPS0                          00000003
+T6OUTPS1                          00000004
+T6OUTPS2                          00000005
+T6OUTPS3                          00000006
+TABLAT                            00000FF5
+TBLPTR                            00000FF6
+TBLPTRH                           00000FF7
+TBLPTRL                           00000FF6
+TBLPTRU                           00000FF8
+TEN                               00000027
+TGEN                              00000004
+TMR0                              00000FD6
+TMR0H                             00000FD7
+TMR0IE                            00000005
+TMR0IF                            00000002
+TMR0IP                            00000002
+TMR0L                             00000FD6
+TMR0ON                            00000007
+TMR1                              00000FCE
+TMR1CS0                           00000006
+TMR1CS1                           00000007
+TMR1GE                            00000007
+TMR1GIE                           00000000
+TMR1GIF                           00000000
+TMR1GIP                           00000000
+TMR1H                             00000FCF
+TMR1IE                            00000000
+TMR1IF                            00000000
+TMR1IP                            00000000
+TMR1L                             00000FCE
+TMR1MD                            00000000
+TMR1ON                            00000000
+TMR1_H_byte_Temp                  00000010
+TMR1_L_byte_Temp                  00000011
+TMR1_VAL                          00000005
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 34
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TMR2                              00000FBC
+TMR2IE                            00000001
+TMR2IF                            00000001
+TMR2IP                            00000001
+TMR2MD                            00000001
+TMR2ON                            00000002
+TMR3                              00000FB2
+TMR3CS0                           00000006
+TMR3CS1                           00000007
+TMR3GE                            00000007
+TMR3GIE                           00000001
+TMR3GIF                           00000001
+TMR3GIP                           00000001
+TMR3H                             00000FB3
+TMR3IE                            00000001
+TMR3IF                            00000001
+TMR3IP                            00000001
+TMR3L                             00000FB2
+TMR3MD                            00000002
+TMR3ON                            00000000
+TMR4                              00000F53
+TMR4IE                            00000000
+TMR4IF                            00000000
+TMR4IP                            00000000
+TMR4MD                            00000003
+TMR4ON                            00000002
+TMR5                              00000F4F
+TMR5CS0                           00000006
+TMR5CS1                           00000007
+TMR5GE                            00000007
+TMR5GIE                           00000002
+TMR5GIF                           00000002
+TMR5GIP                           00000002
+TMR5H                             00000F50
+TMR5IE                            00000001
+TMR5IF                            00000001
+TMR5IP                            00000001
+TMR5L                             00000F4F
+TMR5MD                            00000004
+TMR5ON                            00000000
+TMR6                              00000F4C
+TMR6IE                            00000002
+TMR6IF                            00000002
+TMR6IP                            00000002
+TMR6MD                            00000005
+TMR6ON                            00000002
+TO                                00000003
+TOS                               00000FFD
+TOSH                              00000FFE
+TOSL                              00000FFD
+TOSU                              00000FFF
+TRIGSEL                           00000007
+TRISA                             00000F92
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 35
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TRISA0                            00000000
+TRISA1                            00000001
+TRISA2                            00000002
+TRISA3                            00000003
+TRISA4                            00000004
+TRISA5                            00000005
+TRISA6                            00000006
+TRISA7                            00000007
+TRISB                             00000F93
+TRISB0                            00000000
+TRISB1                            00000001
+TRISB2                            00000002
+TRISB3                            00000003
+TRISB4                            00000004
+TRISB5                            00000005
+TRISB6                            00000006
+TRISB7                            00000007
+TRISC                             00000F94
+TRISC0                            00000000
+TRISC1                            00000001
+TRISC2                            00000002
+TRISC3                            00000003
+TRISC4                            00000004
+TRISC5                            00000005
+TRISC6                            00000006
+TRISC7                            00000007
+TRISD                             00000F95
+TRISD0                            00000000
+TRISD1                            00000001
+TRISD2                            00000002
+TRISD3                            00000003
+TRISD4                            00000004
+TRISD5                            00000005
+TRISD6                            00000006
+TRISD7                            00000007
+TRISE                             00000F96
+TRISE0                            00000000
+TRISE1                            00000001
+TRISE2                            00000002
+TRMT                              00000001
+TRMT1                             00000001
+TRMT2                             00000001
+TUN0                              00000000
+TUN1                              00000001
+TUN2                              00000002
+TUN3                              00000003
+TUN4                              00000004
+TUN5                              00000005
+TX                                00000006
+TX1                               00000006
+TX1IE                             00000004
+TX1IF                             00000004
+TX1IP                             00000004
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 36
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TX1REG                            00000FAD
+TX1STA                            00000FAC
+TX2                               00000006
+TX2IE                             00000004
+TX2IF                             00000004
+TX2IP                             00000004
+TX2REG                            00000F73
+TX2STA                            00000F72
+TX9                               00000006
+TX91                              00000006
+TX92                              00000006
+TX9D                              00000000
+TX9D1                             00000000
+TX9D2                             00000000
+TXEN                              00000005
+TXEN1                             00000005
+TXEN2                             00000005
+TXIE                              00000004
+TXIF                              00000004
+TXIP                              00000004
+TXREG                             00000FAD
+TXREG1                            00000FAD
+TXREG2                            00000F73
+TXSTA                             00000FAC
+TXSTA1                            00000FAC
+TXSTA2                            00000F72
+Timer1_0_times                    00000378
+Timer1_Times                      00000018
+UA                                00000001
+UART1MD                           00000006
+UART2MD                           00000007
+VAL_10MS                          00000014
+VAL_200MS                         00000014
+VAL_500US                         000000FA
+VDIRMAG                           00000007
+VPP                               00000003
+VREFCON0                          00000F42
+VREFCON1                          00000F41
+VREFCON2                          00000F40
+VREFM                             00000002
+VREFN                             00000002
+VREFP                             00000003
+W                                 00000000
+WCOL                              00000007
+WDTCON                            00000FD1
+WPUB                              00000F61
+WPUB0                             00000000
+WPUB1                             00000001
+WPUB2                             00000002
+WPUB3                             00000003
+WPUB4                             00000004
+WPUB5                             00000005
+WPUB6                             00000006
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 37
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+WPUB7                             00000007
+WPUE3                             00000007
+WR                                00000001
+WREG                              00000FE8
+WREN                              00000002
+WRERR                             00000003
+WRITE_EEPROM                      0000028C
+WUE                               00000001
+Z                                 00000002
+_.org_3_014E                      0000014E
+_.org_3_0156                      00000156
+_.org_3_01F6                      000001F6
+_.org_3_024A                      0000024A
+_.org_3_025C                      0000025C
+_.org_3_026E                      0000026E
+_.org_3_02BC                      000002BC
+_.org_3_02C4                      000002C4
+_.org_3_02CE                      000002CE
+_.org_3_02D8                      000002D8
+_.org_3_02E2                      000002E2
+_.org_3_02EC                      000002EC
+_.org_3_02F6                      000002F6
+_.org_3_0300                      00000300
+_.org_3_030A                      0000030A
+_.org_3_0314                      00000314
+_BOREN_NOSLP_2L                   000000FD
+_BOREN_OFF_2L                     000000F9
+_BOREN_ON_2L                      000000FB
+_BOREN_SBORDIS_2L                 000000FF
+_BORV_190_2L                      000000FF
+_BORV_220_2L                      000000F7
+_BORV_250_2L                      000000EF
+_BORV_285_2L                      000000E7
+_CCP2MX_PORTB3_3H                 000000FE
+_CCP2MX_PORTC1_3H                 000000FF
+_CCP3MX_PORTB5_3H                 000000FF
+_CCP3MX_PORTE0_3H                 000000FB
+_CONFIG1H                         00300001
+_CONFIG2H                         00300003
+_CONFIG2L                         00300002
+_CONFIG3H                         00300005
+_CONFIG4L                         00300006
+_CONFIG5H                         00300009
+_CONFIG5L                         00300008
+_CONFIG6H                         0030000B
+_CONFIG6L                         0030000A
+_CONFIG7H                         0030000D
+_CONFIG7L                         0030000C
+_CP0_OFF_5L                       000000FF
+_CP0_ON_5L                        000000FE
+_CP1_OFF_5L                       000000FF
+_CP1_ON_5L                        000000FD
+_CP2_OFF_5L                       000000FF
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 38
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+_CP2_ON_5L                        000000FB
+_CP3_OFF_5L                       000000FF
+_CP3_ON_5L                        000000F7
+_CPB_OFF_5H                       000000FF
+_CPB_ON_5H                        000000BF
+_CPD_OFF_5H                       000000FF
+_CPD_ON_5H                        0000007F
+_DEBUG_OFF_4L                     000000FF
+_DEBUG_ON_4L                      0000007F
+_DEVID1                           003FFFFE
+_DEVID2                           003FFFFF
+_EBTR0_OFF_7L                     000000FF
+_EBTR0_ON_7L                      000000FE
+_EBTR1_OFF_7L                     000000FF
+_EBTR1_ON_7L                      000000FD
+_EBTR2_OFF_7L                     000000FF
+_EBTR2_ON_7L                      000000FB
+_EBTR3_OFF_7L                     000000FF
+_EBTR3_ON_7L                      000000F7
+_EBTRB_OFF_7H                     000000FF
+_EBTRB_ON_7H                      000000BF
+_FCMEN_OFF_1H                     000000BF
+_FCMEN_ON_1H                      000000FF
+_FOSC_ECHPIO6_1H                  000000F5
+_FOSC_ECHP_1H                     000000F4
+_FOSC_ECLPIO6_1H                  000000FD
+_FOSC_ECLP_1H                     000000FC
+_FOSC_ECMPIO6_1H                  000000FB
+_FOSC_ECMP_1H                     000000FA
+_FOSC_HSHP_1H                     000000F2
+_FOSC_HSMP_1H                     000000F3
+_FOSC_INTIO67_1H                  000000F8
+_FOSC_INTIO7_1H                   000000F9
+_FOSC_LP_1H                       000000F0
+_FOSC_RCIO6_1H                    000000F7
+_FOSC_RC_1H                       000000F6
+_FOSC_XT_1H                       000000F1
+_HFOFST_OFF_3H                    000000F7
+_HFOFST_ON_3H                     000000FF
+_IDLOC0                           00200000
+_IDLOC1                           00200001
+_IDLOC2                           00200002
+_IDLOC3                           00200003
+_IDLOC4                           00200004
+_IDLOC5                           00200005
+_IDLOC6                           00200006
+_IDLOC7                           00200007
+_IESO_OFF_1H                      0000007F
+_IESO_ON_1H                       000000FF
+_LVP_OFF_4L                       000000FB
+_LVP_ON_4L                        000000FF
+_MCLRE_EXTMCLR_3H                 000000FF
+_MCLRE_INTMCLR_3H                 0000007F
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 39
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+_P2BMX_PORTC0_3H                  000000DF
+_P2BMX_PORTD2_3H                  000000FF
+_PBADEN_OFF_3H                    000000FD
+_PBADEN_ON_3H                     000000FF
+_PLLCFG_OFF_1H                    000000EF
+_PLLCFG_ON_1H                     000000FF
+_PRICLKEN_OFF_1H                  000000DF
+_PRICLKEN_ON_1H                   000000FF
+_PWRTEN_OFF_2L                    000000FF
+_PWRTEN_ON_2L                     000000FE
+_STVREN_OFF_4L                    000000FE
+_STVREN_ON_4L                     000000FF
+_T3CMX_PORTB5_3H                  000000EF
+_T3CMX_PORTC0_3H                  000000FF
+_WDTEN_NOSLP_2H                   000000FD
+_WDTEN_OFF_2H                     000000FC
+_WDTEN_ON_2H                      000000FF
+_WDTEN_SWON_2H                    000000FE
+_WDTPS_1024_2H                    000000EB
+_WDTPS_128_2H                     000000DF
+_WDTPS_16384_2H                   000000FB
+_WDTPS_16_2H                      000000D3
+_WDTPS_1_2H                       000000C3
+_WDTPS_2048_2H                    000000EF
+_WDTPS_256_2H                     000000E3
+_WDTPS_2_2H                       000000C7
+_WDTPS_32768_2H                   000000FF
+_WDTPS_32_2H                      000000D7
+_WDTPS_4096_2H                    000000F3
+_WDTPS_4_2H                       000000CB
+_WDTPS_512_2H                     000000E7
+_WDTPS_64_2H                      000000DB
+_WDTPS_8192_2H                    000000F7
+_WDTPS_8_2H                       000000CF
+_WRT0_OFF_6L                      000000FF
+_WRT0_ON_6L                       000000FE
+_WRT1_OFF_6L                      000000FF
+_WRT1_ON_6L                       000000FD
+_WRT2_OFF_6L                      000000FF
+_WRT2_ON_6L                       000000FB
+_WRT3_OFF_6L                      000000FF
+_WRT3_ON_6L                       000000F7
+_WRTB_OFF_6H                      000000FF
+_WRTB_ON_6H                       000000BF
+_WRTC_OFF_6H                      000000FF
+_WRTC_ON_6H                       000000DF
+_WRTD_OFF_6H                      000000FF
+_WRTD_ON_6H                       0000007F
+_XINST_OFF_4L                     000000BF
+_XINST_ON_4L                      000000FF
+__18F45K22                        00000001
+back_to_start                     000001EA
+clrLCD                            00000000
+MPASM 5.87                          MAIN.ASM   1-14-2021  11:46:46         PAGE 40
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+count_10ms                        00000014
+count_200ms                       00000015
+count_times                       00000016
+count_times_past                  00000017
+count_us                          00000013
+display_time                      000001EA
+div_1                             00000001
+div_2                             00000002
+div_sum                           00000003
+div_temp                          00000004
+ff                                000001CE
+point_1s_Times                    0000002B
+putcLCD                           00000000
+read                              00000174
+sing_a_song                       000002C0
+
+Errors   :     0
+Warnings :    13 reported,     0 suppressed
+Messages :     0 reported,     0 suppressed
+
+
