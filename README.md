@@ -1,10 +1,4 @@
-# NTUT_Microprocessor
-
-The code of NTUT Microprocessors course. ([Course link](https://aps.ntut.edu.tw/course/tw/ShowSyllabus.jsp?snum=345821&code=11018))
-
-## Final Project
-
-### Project Title: Evaluation and Simulation of a Detergent Dispensing Device
+### Project Title: Detergent Dispensing Simulation Device
 [![video](https://img.youtube.com/vi/RbaBZa_uVXU/hqdefault.jpg)](https://www.youtube.com/watch?v=RbaBZa_uVXU)
 
 
