@@ -18,7 +18,7 @@ The project incorporates several functions, as outlined in the table below:
 | Timer 1 | Controls LED sequential lighting timing |
 | Timer 2 | Provides PWM comparator timing |
 | Timer 3 | Manages LCD timing |
-| LED | Displays progress through a marquee effect |
+| LCD | Displays progress through a marquee effect |
 | LCD | Displays voltage values, cumulative dispensing count, and time |
 | EEPROM | Permanently stores cumulative dispensing count |
 | Buzzer | Plays music via PWM frequency control |
